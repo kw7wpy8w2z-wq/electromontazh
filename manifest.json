@@ -1,0 +1,15 @@
+{
+  "name": "ЭлектроМонтаж",
+  "short_name": "ЭлектроМонтаж",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f2f4f7",
+  "theme_color": "#0a84ff",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

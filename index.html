@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ЭлектроМонтаж</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a84ff">
+<link rel="manifest" href="manifest.json">
+<style>
+:root{--blue:#0a84ff;--bg:#f2f4f7;--card:#fff;--muted:#666;--warn:#ff9500;--danger:#ff3b30}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:#111}
+header{position:sticky;top:0;background:#fff;border-bottom:1px solid #e3e6ea;padding:14px 16px;font-weight:700;font-size:18px;z-index:10}
+main{padding:16px 16px 100px;max-width:640px;margin:0 auto}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+h2{margin:0 0 12px;font-size:17px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 5px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #d9dde3;border-radius:12px;font-size:16px;background:#fff}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{width:100%;padding:14px;border:0;border-radius:14px;background:var(--blue);color:#fff;font-size:16px;font-weight:600;margin-top:12px}
+button.secondary{background:#e9eef5;color:#111}
+button.small{width:auto;padding:8px 12px;margin:0;background:var(--danger);font-size:14px}
+.result{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.kpi{background:#f6f8fb;border-radius:12px;padding:12px}
+.kpi b{display:block;font-size:20px}
+.kpi span{font-size:12px;color:var(--muted)}
+.warn{background:#fff4e5;border-left:4px solid var(--warn);padding:10px;border-radius:8px;margin-top:8px;font-size:14px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e3e6ea;display:flex;z-index:20}
+nav button{background:none;color:#7c8794;margin:0;font-size:11px;padding:10px 0 14px;border-radius:0}
+nav button.active{color:var(--blue);font-weight:700}
+.item{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #eef1f5}
+.item small{color:var(--muted)}
+.total{font-size:20px;font-weight:800;text-align:right;margin-top:10px}
+canvas{width:100%;height:340px;background:#f8fafc;border-radius:12px}
+@media print{nav,button{display:none}}
+</style>
+</head>
+<body>
+<header>ЭлектроМонтаж</header>
+<main>
+
+<section id="calc" class="tab">
+<div class="card">
+<h2>Расчёт кабеля и защиты</h2>
+<label>Название линии</label><input id="name" value="Розеточная группа">
+<div class="row">
+<div><label>Мощность, кВт</label><input id="power" type="number" step="0.1" value="3"></div>
+<div><label>Длина, м</label><input id="length" type="number" value="20"></div>
+</div>
+<div class="row">
+<div><label>Напряжение, В</label><input id="voltage" type="number" value="230"></div>
+<div><label>cos φ</label><input id="pf" type="number" step="0.01" value="0.95"></div>
+</div>
+<label>Тип сети</label><select id="phases"><option value="1">1 фаза</option><option value="3">3 фазы</option></select>
+<label>Материал жилы</label><select id="material"><option value="cu">Медь</option><option value="al">Алюминий</option></select>
+<label>Тип кабеля</label><select id="cableType"><option>ВВГнг</option><option>ПВС</option><option>СИП</option><option>АВВГ</option><option>КГ</option></select>
+<label>Способ прокладки</label><select id="install"><option value="wall">В стене / штробе</option><option value="air">Открыто в воздухе</option><option value="ground">В земле</option><option value="tray">В лотке</option></select>
+<button onclick="calculate()">Рассчитать</button>
+<div id="result"></div>
+<button class="secondary" onclick="addCableToEstimate()">Добавить кабель в смету</button>
+</div>
+</section>
+
+<section id="estimate" class="tab" hidden>
+<div class="card">
+<h2>Смета</h2>
+<label>Наименование</label><input id="itemName" placeholder="Кабель ВВГнг 3×2,5">
+<div class="row">
+<div><label>Кол-во</label><input id="itemQty" type="number" value="1"></div>
+<div><label>Цена, ₽</label><input id="itemPrice" type="number" value="0"></div>
+</div>
+<label>Единица</label><select id="itemUnit"><option>м</option><option>шт</option><option>компл.</option></select>
+<label><input type="checkbox" id="itemWork"> Работа</label>
+<button onclick="addItem()">Добавить в смету</button>
+</div>
+<div class="card">
+<h2>Позиции</h2><div id="items"></div>
+<div class="total" id="total">0 ₽</div>
+<button class="secondary" onclick="window.print()">Сохранить / отправить PDF</button>
+</div>
+</section>
+
+<section id="route" class="tab" hidden>
+<div class="card">
+<h2>Трасса кабеля</h2>
+<p style="color:var(--muted);font-size:13px">Нажимайте на план, чтобы добавить точки: щит, розетки, светильники, распредкоробки.</p>
+<canvas id="plan" width="600" height="360"></canvas>
+<div class="row">
+<div><label>Глубина в земле, м</label><input id="depth" type="number" step="0.1" value="0.7"></div>
+<div><label>Расстояние до фундамента, м</label><input id="foundation" type="number" step="0.1" value="1"></div>
+</div>
+<label>Тип трассы</label><select id="routeType"><option value="wall">По стене</option><option value="ground">В земле</option></select>
+<button onclick="checkRoute()">Проверить трассу</button>
+<button class="secondary" onclick="addMaterials()">Добавить материалы в смету</button>
+<button class="secondary" onclick="clearRoute()">Очистить трассу</button>
+<div id="routeResult"></div>
+<div class="result">
+<div class="kpi"><b id="routeLength">0.0 м</b><span>Длина трассы</span></div>
+<div class="kpi"><b id="routeCable">0.0 м</b><span>Кабеля с запасом 10%</span></div>
+</div>
+</div>
+</section>
+
+<section id="objects" class="tab" hidden>
+<div class="card">
+<h2>Объекты</h2>
+<label>Название объекта</label><input id="objectName" placeholder="Квартира, ул. Ленина 10">
+<button onclick="saveObject()">Сохранить объект</button>
+<div id="objectList"></div>
+</div>
+</section>
+
+</main>
+
+<nav>
+<button class="active" onclick="showTab('calc',this)">⚡<br>Расчёт</button>
+<button onclick="showTab('estimate',this)">📄<br>Смета</button>
+<button onclick="showTab('route',this)">🗺<br>Трасса</button>
+<button onclick="showTab('objects',this)">🏠<br>Объекты</button>
+</nav>
+
+<script>
+const ampacityCu={1.5:19,2.5:27,4:38,6:46,10:70,16:85,25:115,35:135,50:175,70:215,95:260};
+const ampacityAl={2.5:20,4:28,6:36,10:50,16:60,25:85,35:100,50:135,70:165,95:200};
+let items=JSON.parse(localStorage.getItem('em_items')||'[]');
+let points=JSON.parse(localStorage.getItem('em_points')||'[]');
+let objects=JSON.parse(localStorage.getItem('em_objects')||'[]');
+let lastCalc=null;
+
+function showTab(id,btn){document.querySelectorAll('.tab').forEach(x=>x.hidden=true);document.getElementById(id).hidden=false;document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
+
+function calculate(){
+const p=+power.value,l=+length.value,u=+voltage.value,pf=+pf.value||0.95,ph=+phases.value;
+const current=ph===3?p*1000/(1.732*u*pf):p*1000/(u*pf);
+const table=material.value==='cu'?ampacityCu:ampacityAl;
+const needed=current*1.25;
+const section=Object.keys(table).map(Number).filter(s=>table[s]>=needed).sort((a,b)=>a-b)[0]||95;
+const rho=material.value==='cu'?0.0175:0.028;
+const drop=ph===3?(1.732*l*current*rho)/(section*u)*100:(2*l*current*rho)/(section*u)*100;
+const breaker=Math.ceil(current*1.25/5)*5;
+let warns=[];
+if(drop>5)warns.push('Падение напряжения '+drop.toFixed(2)+'% превышает 5%. Увеличьте сечение или сократите длину линии.');
+if(install.value==='ground')warns.push('Для прокладки в земле проверьте глубину, защиту от повреждений и расстояния до фундаментов и коммуникаций по ПУЭ.');
+if(install.value==='wall')warns.push('Учитывайте температуру, число кабелей в пучке и способ прокладки: они влияют на допустимый ток.');
+lastCalc={name:name.value,cable:cableType.value,section,current,breaker,length:l};
+result.innerHTML=`<div class="result">
+<div class="kpi"><b>${current.toFixed(1)} А</b><span>Расчётный ток</span></div>
+<div class="kpi"><b>${section} мм²</b><span>Сечение</span></div>
+<div class="kpi"><b>${drop.toFixed(2)} %</b><span>Падение напряжения</span></div>
+<div class="kpi"><b>${breaker} А</b><span>Автомат</span></div></div>`+
+warns.map(w=>`<div class="warn">${w}</div>`).join('');
+}
+
+function addCableToEstimate(){
+if(!lastCalc)return;
+items.push({name:lastCalc.cable+' '+lastCalc.section+' мм²',qty:Math.ceil(lastCalc.length*1.1),price:0,unit:'м',work:false});
+saveItems();alert('Кабель добавлен в смету. Укажите цену в разделе «Смета».');
+}
+
+function addItem(){
+if(!itemName.value)return;
+items.push({name:itemName.value,qty:+itemQty.value||0,price:+itemPrice.value||0,unit:itemUnit.value,work:itemWork.checked});
+saveItems();itemName.value='';
+}
+function saveItems(){localStorage.setItem('em_items',JSON.stringify(items));renderItems()}
+function renderItems(){
+itemsBox.innerHTML=items.map((x,i)=>`<div class="item"><div><b>${x.name}</b><br><small>${x.qty} ${x.unit} × ${x.price} ₽${x.work?' · работа':''}</small></div><div>${(x.qty*x.price).toFixed(0)} ₽ <button class="small" onclick="delItem(${i})">×</button></div></div>`).join('');
+total.textContent=items.reduce((s,x)=>s+x.qty*x.price,0).toFixed(0)+' ₽';
+}
+function delItem(i){items.splice(i,1);saveItems()}
+
+const canvas=document.getElementById('plan'),ctx=canvas.getContext('2d');
+function routeLength(){let len=0;for(let i=1;i<points.length;i++)len+=Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y)/10;return len}
+function drawRoute(){
+ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.strokeStyle='#dfe4ea';for(let x=0;x<canvas.width;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke()}
+for(let y=0;y<canvas.height;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke()}
+ctx.strokeStyle='#0a84ff';ctx.lineWidth=3;
+for(let i=1;i<points.length;i++){ctx.beginPath();ctx.moveTo(points[i-1].x,points[i-1].y);ctx.lineTo(points[i].x,points[i].y);ctx.stroke()}
+ctx.fillStyle='#ff3b30';points.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,6,0,7);ctx.fill()});
+const len=routeLength();routeLength.textContent=len.toFixed(1)+' м';routeCable.textContent=(len*1.1).toFixed(1)+' м';
+localStorage.setItem('em_points',JSON.stringify(points));
+}
+canvas.addEventListener('click',e=>{const r=canvas.getBoundingClientRect();points.push({x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height});drawRoute()});
+function clearRoute(){points=[];localStorage.setItem('em_points','[]');drawRoute();routeResult.innerHTML=''}
+
+function checkRoute(){
+const len=routeLength();let warns=[];
+if(points.length<2)warns.push('Добавьте минимум две точки трассы.');
+if(routeType.value==='ground'){
+const d=+depth.value,f=+foundation.value;
+if(d<0.7)warns.push('Глубина заложения '+d+' м меньше рекомендуемой 0,7 м. Проверьте защиту кабеля и условия прокладки по ПУЭ.');
+if(f<0.6)warns.push('Расстояние до фундамента '+f+' м меньше 0,6 м. Измените трассу или предусмотрите дополнительную защиту.');
+warns.push('Проверьте пересечения с водопроводом, канализацией, газом и другими коммуникациями.');
+}else{
+warns.push('Проверьте защиту кабеля в местах механического воздействия и соблюдение расстояний при скрытой прокладке.');
+}
+routeResult.innerHTML=warns.map(w=>`<div class="warn">${w}</div>`).join('');
+}
+
+function addMaterials(){
+const len=routeLength();if(len<=0)return alert('Сначала постройте трассу.');
+const cable=Math.ceil(len*1.1);
+items.push({name:'Кабель по трассе',qty:cable,price:0,unit:'м',work:false});
+items.push({name:'Гофра / труба',qty:Math.ceil(len*1.1),price:0,unit:'м',work:false});
+items.push({name:'Крепёж кабельный',qty:Math.ceil(len/0.5),price:0,unit:'шт',work:false});
+items.push({name:'Распределительная коробка',qty:Math.max(1,Math.ceil(len/15)),price:0,unit:'шт',work:false});
+saveItems();alert('Материалы добавлены в смету.');
+}
+
+function saveObject(){
+if(!objectName.value)return;
+objects.push({name:objectName.value,date:new Date().toLocaleDateString('ru-RU'),items:items.length,route:routeLength().toFixed(1)});
+localStorage.setItem('em_objects',JSON.stringify(objects));objectName.value='';renderObjects();
+}
+function renderObjects(){
+objectList.innerHTML=objects.map((o,i)=>`<div class="item"><div><b>${o.name}</b><br><small>${o.date} · позиций: ${o.items} · трасса: ${o.route} м</small></div><button class="small" onclick="delObject(${i})">×</button></div>`).join('');
+}
+function delObject(i){objects.splice(i,1);localStorage.setItem('em_objects',JSON.stringify(objects));renderObjects()}
+
+renderItems();drawRoute();renderObjects();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
